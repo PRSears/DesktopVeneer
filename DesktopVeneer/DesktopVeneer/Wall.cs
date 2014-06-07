@@ -141,7 +141,7 @@ namespace DesktopVeneer
             return ScaledWallpaper.Slice(ConvertToAbsoluteBounds(Wall.ScreenBounds(forIndex)));
         }
 
-        protected void FreeImages()
+        public void FreeImages()
         {
             if (TranscodedWallpaper != null)
             {

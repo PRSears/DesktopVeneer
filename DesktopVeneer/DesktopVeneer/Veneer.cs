@@ -29,8 +29,11 @@ namespace DesktopVeneer
             get;
             set;
         }
+
         protected static Bitmap DefaultBackground = Veneer.DefaultBackground_Load();
         
+        private DateTime LastFallTime;
+
         public Veneer(int screenIndex, Image wallpaperSlice)
         {
             ScreenIndex         = screenIndex;
@@ -44,6 +47,7 @@ namespace DesktopVeneer
 
         protected void InitializeComponent_extended()
         {
+            this.LastFallTime       = new DateTime();
             this.BackColor          = Color.LimeGreen;
             this.TransparencyKey    = Color.LimeGreen;
         }
@@ -96,6 +100,12 @@ namespace DesktopVeneer
                     );
             }
             #endregion
+        }
+
+        protected override void OnPaint(PaintEventArgs e)
+        {
+
+            base.OnPaint(e);
         }
 
         protected void EnableDoubleBuffering()
@@ -264,7 +274,8 @@ namespace DesktopVeneer
 
         private void SendDown()
         {
-            this.SendToBack();
+            if((DateTime.Now - LastFallTime).TotalMilliseconds > 5)
+                this.SendToBack();
         }
         protected override void OnShown(EventArgs e)
         {
