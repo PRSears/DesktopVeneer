@@ -15,18 +15,7 @@ using Extender.Exceptions;
 using Extender.Debugging;
 
 namespace DesktopVeneer
-{
-    //
-    // TODO Re-write:
-    //      Have Wall class save the cropped & scaled background to 
-    //      %AppData%\Microsoft\Windows\Themes\Facade\. Generate all 
-    //      slices for currently connected screens, saving them to the 
-    //      same folder. Dispose of Wall object. (Perhaps a static class
-    //      would be best suited for this purpose?)
-    //
-    // TODO Remove all timers from this class, let overlord handle it.
-    // 
-
+{   
     public partial class Veneer : Form
     {
         public int ScreenIndex
@@ -41,47 +30,9 @@ namespace DesktopVeneer
             set;
         }
         protected static Bitmap DefaultBackground = Veneer.DefaultBackground_Load();
-
-        private DateTime LastPaint;
-        private System.Timers.Timer startupDelayTimer;
-        private System.Timers.Timer reshowDelayTimer;
-        private bool lapsed = false;
-        public double InitialDelay
-        {
-            get;
-            set;
-        }
-
-        public double ReshowInterval
-        {
-            get;
-            set;
-        }
-
-        public double PaintDelay
-        {
-            get;
-            set;
-        }
-
-        #region for debug...
-        [Obsolete]
-        public Veneer():this(0, null)
-        {
-        }
-        #endregion
-
-        public Veneer(int screenIndex, Image wallpaperSlice):this(screenIndex, wallpaperSlice, 1600, 1600, 0)
-        {
-        }
         
-        public Veneer
-            (int screenIndex, Image wallpaperSlice, double initialDelay, double reshowInterval, double paintDelay)
+        public Veneer(int screenIndex, Image wallpaperSlice)
         {
-            LastPaint           = new DateTime();
-            InitialDelay        = initialDelay;
-            ReshowInterval      = reshowInterval;
-            PaintDelay          = paintDelay;
             ScreenIndex         = screenIndex;
             WallpaperSlice      = wallpaperSlice;
 
@@ -93,43 +44,19 @@ namespace DesktopVeneer
 
         protected void InitializeComponent_extended()
         {
-            this.BackColor = Color.LimeGreen;
-            this.TransparencyKey = Color.LimeGreen;
+            this.BackColor          = Color.LimeGreen;
+            this.TransparencyKey    = Color.LimeGreen;
         }
 
         private void Subscribe()
         {
-            //startupDelayTimer = new System.Timers.Timer(InitialDelay);
-            //startupDelayTimer.Elapsed += startupDelayTimer_Elapsed;
-            //startupDelayTimer.Enabled = true;
-
-            reshowDelayTimer = new System.Timers.Timer(ReshowInterval);
-            reshowDelayTimer.Elapsed += reshowDelayTimer_Elapsed;
-            reshowDelayTimer.Enabled = false;
-
-            this.Enter          += Form1_Enter;
-            this.Shown          += Form1_Shown;
-            this.Activated      += Form1_Activated;
-            this.HandleCreated  += Form1_HandleCreated;
+            this.Enter          += Veneer_Enter;
+            this.Shown          += Veneer_Shown;
+            this.Activated      += Veneer_Activated;
+            this.HandleCreated  += Veneer_HandleCreated;
             this.ParentChanged  += Veneer_ParentChanged;
-            this.VisibleChanged += Form1_VisibleChanged;
+            this.VisibleChanged += Veneer_VisibleChanged;
         }
-
-        void reshowDelayTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            if(this.WallpaperSlice != null)
-            {
-                this.InvokeReshow();
-            }
-        }
-
-        void startupDelayTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            //this.startupDelayTimer.Enabled = false;
-            //this.lapsed = true;
-            this.Invalidate();
-        }
-
 
         public void Build(int screenIndex, Image wallpaperSlice)
         {
@@ -140,35 +67,25 @@ namespace DesktopVeneer
         protected static Bitmap DefaultBackground_Load()
         {
             System.Reflection.Assembly exeAsembly = System.Reflection.Assembly.GetExecutingAssembly();
-            Stream imageStream = exeAsembly.GetManifestResourceStream("DesktopFacade.default.bmp");
+            Stream imageStream = exeAsembly.GetManifestResourceStream("DesktopVeneer.default.bmp");
             return new Bitmap(imageStream);
+        }
+
+        protected Image WallpaperSliceOrDefault()
+        {
+            return this.WallpaperSlice != null ? this.WallpaperSlice : Veneer.DefaultBackground;
         }
 
         protected override void OnPaintBackground(PaintEventArgs e)
         {
-            //if(!lapsed)
-            //{
-            //    this.BackgroundImage = Veneer.DefaultBackground;
-            //    this.OnPaintBackground(e);
-            //    return;
-            //}
-
-            if (TimeSinceLastPaint.TotalMilliseconds < PaintDelay)
-                return;
-
             if(this.BackgroundImage != this.WallpaperSlice)
-            {
-                if (this.WallpaperSlice == null)
-                    this.WallpaperSlice = Veneer.DefaultBackground;
+                this.BackgroundImage = WallpaperSliceOrDefault();
 
-                this.BackgroundImage = this.WallpaperSlice;
-            }
-
+            #region base.OnPaintBackground(e)...
             try
             {
                 base.OnPaintBackground(e);
             }
-            #region catch
             catch
             {
                 // Don't sweat it if the paint fucks up
@@ -183,22 +100,12 @@ namespace DesktopVeneer
 
         protected void EnableDoubleBuffering()
         {
-           // Set the value of the double-buffering style bits to true. 
            this.SetStyle(ControlStyles.DoubleBuffer | 
               ControlStyles.UserPaint | 
               ControlStyles.AllPaintingInWmPaint,
               true);
            this.UpdateStyles();
         }
-
-        protected TimeSpan TimeSinceLastPaint
-        {
-            get
-            {
-                return (DateTime.Now - LastPaint);
-            }
-        }
-            
 
         public void InvokeHide()
         {
@@ -227,12 +134,10 @@ namespace DesktopVeneer
         private void MakeInvisible()
         {
             this.Visible = false;
-            this.reshowDelayTimer.Enabled = true;
         }
 
         private void MakeVisible()
         {
-            this.reshowDelayTimer.Enabled = false;
             this.Invalidate();
             this.Visible = true;
         }
@@ -254,19 +159,19 @@ namespace DesktopVeneer
             if (WallpaperSlice == null || WallpaperSlice == Veneer.DefaultBackground)
                 return;
 
-            //this.WindowState = FormWindowState.Normal;
             this.Location = new Point
                 (
                     Screen.AllScreens[this.ScreenIndex].Bounds.X,
                     Screen.AllScreens[this.ScreenIndex].Bounds.Y
                 );
             this.Maximize();
-            // THOUGHT Changing window state might cause flickering.
-            //         I'm not sure if the location gets properly 
-            //         updated if the window is maximized, however.
 
             this.BackgroundImage = this.WallpaperSlice;
             this.BackgroundImageLayout = ImageLayout.Center;
+
+            if (this.Visible == false)
+                this.MakeVisible();
+
         }
 
         public void Maximize()
@@ -276,8 +181,7 @@ namespace DesktopVeneer
         }
 
         /// <summary>
-        /// Disposes the current background, and automatically hides the form until 
-        /// a valid image is assigned to this.WallpaperSlice.
+        /// Disposes the current background, and automatically hides the form.
         /// </summary>
         public void InvalidateBackground()
         {
@@ -304,45 +208,47 @@ namespace DesktopVeneer
                 this.WallpaperSlice.Dispose();
         }
 
+        #region SendToBack Event handlers
         void Veneer_ParentChanged(object sender, EventArgs e)
         {
             this.InvokeFall();
         }
 
-        void Form1_Shown(object sender, EventArgs e)
+        void Veneer_Shown(object sender, EventArgs e)
         {
             this.InvokeFall();
         }
 
-        void Form1_Enter(object sender, EventArgs e)
+        void Veneer_Enter(object sender, EventArgs e)
         {
             this.InvokeFall();
         }
 
-        void Form1_VisibleChanged(object sender, EventArgs e)
+        void Veneer_VisibleChanged(object sender, EventArgs e)
         {
             this.InvokeFall();
         }
 
-        void Form1_MouseEnter(object sender, EventArgs e)
+        void Veneer_MouseEnter(object sender, EventArgs e)
         {
             this.InvokeFall();
         }
 
-        void Form1_Activated(object sender, EventArgs e)
+        void Veneer_Activated(object sender, EventArgs e)
         {
             this.InvokeFall();
         }
 
-        void Form1_Paint(object sender, PaintEventArgs e)
+        void Veneer_Paint(object sender, PaintEventArgs e)
         {
             this.InvokeFall();
         }
 
-        void Form1_HandleCreated(object sender, EventArgs e)
+        void Veneer_HandleCreated(object sender, EventArgs e)
         {
             this.InvokeFall();
         }
+        #endregion
 
         public void InvokeFall()
         {
@@ -360,7 +266,14 @@ namespace DesktopVeneer
         {
             this.SendToBack();
         }
+        protected override void OnShown(EventArgs e)
+        {
+            base.OnShown(e);
+            int wl = GetWIndowLong(this.Handle, GWL.ExStyle);
+            wl = wl | 0x80000 | 0x20;
 
+            SetWindowLong(this.Handle, GWL.ExStyle, wl);
+        }
 
         [DllImport("user32", CharSet = CharSet.Auto, SetLastError = true, ExactSpelling = true)]
         protected static extern IntPtr GetWindow(IntPtr hwnd, int wFlag);
@@ -399,13 +312,10 @@ namespace DesktopVeneer
         [DllImport("user32.dll", EntryPoint = "SetLayeredWindowAttributes")]
         public static extern bool SetLayeredWindowAttributes(IntPtr hWnd, int crKey, byte alpha, LWA dwFlags);
 
-        protected override void OnShown(EventArgs e)
-        {
-            base.OnShown(e);
-            int wl = GetWIndowLong(this.Handle, GWL.ExStyle);
-            wl = wl | 0x80000 | 0x20;
 
-            SetWindowLong(this.Handle, GWL.ExStyle, wl);
+        public static void Test_Harness()
+        {
+            Veneer v = new Veneer(0, Veneer.DefaultBackground);
         }
     }
 }

@@ -11,8 +11,6 @@ using Extender.Drawing;
 
 namespace DesktopVeneer
 {
-    // TODO Implement IDisposable?
-    // TOOD Switch to caching temp images/slices in Themes folder to cut memory useage.
     public class Wall
     {
         protected static string SystemBackgroundPath = @"Microsoft\Windows\Themes\TranscodedWallpaper";
@@ -111,9 +109,6 @@ namespace DesktopVeneer
             this.Reload();
         }
 
-        // TODO Write system to invalidate image when background changes
-        //      Force Bitmaps to reload/regen
-
         /// <summary>
         /// Loads the image at %AppData%\TranscodedWallpaper, stores it in this.TranscodedWallpaper, 
         /// and returns the same Image.
@@ -143,30 +138,7 @@ namespace DesktopVeneer
         /// </summary>
         public Bitmap SliceFor(int forIndex)
         {
-            #region deprecated
-            //Bitmap ScaledImage = (NeedsScaling()) ? 
-            //    new Bitmap(this.TranscodedWallpaper, CalculateScaleSize()) :
-            //    new Bitmap(this.TranscodedWallpaper);
-
-            //Console.WriteLine("\nSlicing wallpaper: " + this.DesktopBackgroundPath);
-            //DEBUG_WriteRect("Full image bounds:", new Rectangle(0, 0, this.TranscodedWallpaper.Width, this.TranscodedWallpaper.Height));
-            //DEBUG_WriteRect("Scaled bounds: ", new Rectangle(0, 0, ScaledImage.Width, ScaledImage.Height));
-            //DEBUG_WriteRect(" > Cropping at", ConvertToAbsoluteBounds(Screen.AllScreens[forIndex].Bounds));
-
-            //DEBUG_WriteRect("\n Screen" + forIndex + " bounds: ", Screen.AllScreens[forIndex].Bounds);
-
-            //return (ScaledImage).Clone
-            //    (
-            //        ConvertToAbsoluteBounds(Screen.AllScreens[forIndex].Bounds), 
-            //        this.TranscodedWallpaper.PixelFormat
-            //    );
-            #endregion
-
-            return ScaledWallpaper.Clone
-                (
-                    ConvertToAbsoluteBounds(Screen.AllScreens[forIndex].Bounds),
-                    this.ScaledWallpaper.PixelFormat
-                );
+            return ScaledWallpaper.Slice(ConvertToAbsoluteBounds(Wall.ScreenBounds(forIndex)));
         }
 
         protected void FreeImages()
@@ -191,6 +163,11 @@ namespace DesktopVeneer
                     (this.TranscodedWallpaper.Width != AbsoluteScreenSize.Width) ||
                     (this.TranscodedWallpaper.Height != AbsoluteScreenSize.Height)
                 );
+        }
+
+        public static Rectangle ScreenBounds(int screenIndex)
+        {
+            return Screen.AllScreens[screenIndex].Bounds;
         }
 
         protected Size CalculateScaleSize()
@@ -276,38 +253,6 @@ namespace DesktopVeneer
                 );
         }
 
-        #region Deprecated
-        [Obsolete]
-        public static void DEBUG_WriteRect(Rectangle rect)
-        {
-            Console.WriteLine(String.Format
-                (
-                    "({0}, {1}) width: {2}, height: {3}",
-                    rect.X,
-                    rect.Y,
-                    rect.Width,
-                    rect.Height
-                ));
-        }
-
-        [Obsolete]
-        public static void DEBUG_WriteRect(string message, Rectangle rect)
-        {
-            Console.Write(String.Format("{0} ", message));
-            DEBUG_WriteRect(rect);
-        }
-        [Obsolete]
-        public static string DEBUG_RectToString(Rectangle r)
-        {
-            return String.Format
-                (
-                    "({0}, {1}) [Width {2}, Height {3}]",
-                    r.X, r.Y,
-                    r.Width, r.Height
-                );
-        }
-        #endregion
-
         public static void Test_Harness()
         {
             Wall t = new Wall();
@@ -323,7 +268,6 @@ namespace DesktopVeneer
                 slice.Dispose();
             }
 
-            //Console.WriteLine("Slice size          : (" + slice1.Width + ", " + slice1.Height + ")");
-        }
+         }
     }
 }

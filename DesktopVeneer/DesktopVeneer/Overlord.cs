@@ -6,12 +6,16 @@ using System.Windows.Forms;
 using System.Drawing;
 using System.IO;
 using System.Security.Permissions;
-using Extender.Drawing;
 using System.Timers;
+using Extender.Drawing;
+using Extender.Debugging;
 
 namespace DesktopVeneer
 {
-    [PermissionSet(SecurityAction.Demand, Name = "FullTrust")]
+    /// <remarks>
+    /// Helper class to track when changes to the background have been made, 
+    /// and update the forms.
+    /// </remarks>
     public class Overlord
     {
         protected FileSystemWatcher  Watcher;
@@ -26,6 +30,10 @@ namespace DesktopVeneer
             set;
         }
 
+        /// <summary>
+        /// Gets the current number of connected and enabled screens from
+        /// Screen.AllScreens.
+        /// </summary>
         public int ScreenCount
         {
             get
@@ -34,10 +42,50 @@ namespace DesktopVeneer
             }
         }
 
+        /// <summary>
+        /// Minimum time in milliseconds to wait between calls to refresh veneers.
+        /// In theory this cuts down on flicker.
+        /// </summary>
         public double RefreshDelay
         {
             get;
             set;
+        }
+
+        /// <summary>
+        /// Minimum time in milliseconds between events raised by the 'Watcher' 
+        /// FileSystemWatcher.
+        /// </summary>
+        public double MinFilewatcherDelay
+        {
+            get;
+            set;
+        }
+        //
+        // TODO It would be a better idea to have the first WatcherEvent start a timer
+        //      (like how RequestRefresh works) and keep trying to do a refresh until 
+        //      TimeSinceFileChEvent > MinFilewatcherDelay.
+
+        /// <summary>
+        /// Time to wait between a detected file change and executing the required
+        /// action.
+        /// </summary>
+        protected int FileChDelay
+        {
+            get;
+            set;
+        }
+
+        /// <summary>
+        /// Gets the total milliseconds elapsed since the last event raised by the
+        /// 'Watcher' FileSystemWatcher.
+        /// </summary>
+        public double TimeSinceFileChEvent
+        {
+            get
+            {
+                return (DateTime.Now - FileChanged).TotalMilliseconds;
+            }
         }
 
         public Overlord()
@@ -45,17 +93,24 @@ namespace DesktopVeneer
             Watcher             = new FileSystemWatcher();
             FileChanged         = new DateTime();
             DesktopBackground   = new Wall();
+            MinFilewatcherDelay = 800;
             RefreshDelay        = 1000;
+            FileChDelay         = 2500;
             InitWatchers();
         }
 
+        /// <summary>
+        /// Attemps to refresh and update all veneers (desktop overlays).
+        /// If the attempt fails a timer is started, and another refresh 
+        /// is attempted on each interval until it is successful.
+        /// </summary>
         public void RequestRefresh()
         {
             if (!RefreshVeneers())
                 RefreshTimer.Enabled = true;
         }
 
-        private bool RefreshVeneers()
+        protected bool RefreshVeneers()
         {
             // If a display has been added or removed we want to re-build
             // the Veneers array from scratch.
@@ -78,6 +133,7 @@ namespace DesktopVeneer
             {
                 foreach (Veneer v in Veneers)
                     v.InvalidateBackground();
+                return false;
             }
 
             RefreshTimer.Enabled = false;
@@ -97,15 +153,28 @@ namespace DesktopVeneer
             }
         }
 
+        /// <summary>
+        /// Starts the FileSystemWatch to monitor for background changes, and immediately 
+        /// (re)initializes all veneers.
+        /// </summary>
         public void BeginWatch()
         {
             Watcher.EnableRaisingEvents = true;
             BuildVeneers(); 
         }
 
-        public void EndWatch()
+        /// <summary>
+        /// Stops the FileSystemWatch responsible for monitoring the desktop background.
+        /// </summary>
+        /// <param name="destroyVeneers">
+        /// If true EndWatch will attempt to close all veneer windows immediately after
+        /// disabling the FileSystemWatcher.
+        /// </param>
+        public void EndWatch(bool destroyVeneers)
         {
             Watcher.EnableRaisingEvents = false;
+            if (destroyVeneers)
+                DestroyVeneers();
         }
 
         protected void InitWatchers()
@@ -114,25 +183,37 @@ namespace DesktopVeneer
             this.Watcher.Path   = Directory.GetParent(this.DesktopBackground.DesktopBackgroundPath)
                                            .FullName;
 
-            this.Watcher.NotifyFilter =
-                NotifyFilters.LastAccess |
-                NotifyFilters.LastWrite  |
-                NotifyFilters.Size;
+            this.Watcher.NotifyFilter = NotifyFilters.LastWrite;
             Watcher.Changed += Watcher_OnChange;
 
             this.RefreshTimer = new System.Timers.Timer(RefreshDelay);
-            this.RefreshTimer.Elapsed += RequestRefresh;
+            this.RefreshTimer.Elapsed += RefreshTimer_Elapsed;
             this.RefreshTimer.Enabled = false;
         }
 
-        private void RequestRefresh(object sender, ElapsedEventArgs e)
+        private void RefreshTimer_Elapsed(object sender, ElapsedEventArgs e)
         {
             this.RequestRefresh();
         }
 
         protected void Watcher_OnChange(object sender, FileSystemEventArgs e)
         {
-            this.RequestRefresh();
+            Debug.WriteMessage(": " + DateTime.Now.Millisecond + "ms", "watcher event");
+
+            // Don't request refresh if a request has already been made within
+            // ('MinFilewatcherDelay') milliseconds.
+            if (TimeSinceFileChEvent > MinFilewatcherDelay)
+            {
+                // Hide the veneers while we wait for windows to transition between backgrounds
+                foreach (Veneer v in this.Veneers) v.InvokeHide();
+                System.Threading.Thread.Sleep(FileChDelay);
+                // If we don't wait here then Wall will try to load the TranscodedWallpaper
+                // while Windows is still writing to it, causing all kinds of fun problems.
+
+                this.RequestRefresh();
+                this.FileChanged = DateTime.Now;
+                Debug.WriteMessage("Action triggered", "watcher event");
+            }
         }
 
         protected void DestroyVeneers()
