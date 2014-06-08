@@ -52,10 +52,6 @@ namespace DesktopVeneer
             get;
             set;
         }
-        //
-        // TODO It would be a better idea to have the first WatcherEvent start a timer
-        //      (like how RequestRefresh works) and keep trying to do a refresh until 
-        //      TimeSinceFileChEvent > MinFilewatcherDelay.
 
         /// <summary>
         /// Gets the total milliseconds elapsed since the last event raised by the
@@ -136,6 +132,8 @@ namespace DesktopVeneer
                 Veneers[i]  = new Veneer(i, DesktopBackground.SliceFor(i));
                 Veneers[i].Show();
             }
+
+            DesktopBackground.FreeImages();
         }
 
         /// <summary>

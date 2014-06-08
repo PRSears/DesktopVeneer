@@ -154,6 +154,8 @@ namespace DesktopVeneer
                 this._ScaledWallpaper.Dispose();
                 this._ScaledWallpaper = null;
             }
+
+            GC.Collect();
         }
 
         protected bool NeedsScaling()

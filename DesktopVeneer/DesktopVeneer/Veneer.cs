@@ -50,6 +50,8 @@ namespace DesktopVeneer
             this.LastFallTime       = new DateTime();
             this.BackColor          = Color.LimeGreen;
             this.TransparencyKey    = Color.LimeGreen;
+
+            this.Text = String.Format("Veneer {0}", ScreenIndex.ToString("D2"));
         }
 
         private void Subscribe()
