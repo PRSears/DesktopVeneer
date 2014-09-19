@@ -1,18 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows.Forms;
-using System.Threading;
-using System.Timers;
-using System.Runtime.InteropServices;
-using System.IO;
+﻿using Extender.Debugging;
 using Extender.Exceptions;
-using Extender.Debugging;
+using System;
+using System.Drawing;
+using System.IO;
+using System.Runtime.InteropServices;
+using System.Windows.Forms;
 
 namespace DesktopVeneer
 {   
@@ -102,12 +94,6 @@ namespace DesktopVeneer
                     );
             }
             #endregion
-        }
-
-        protected override void OnPaint(PaintEventArgs e)
-        {
-
-            base.OnPaint(e);
         }
 
         protected void EnableDoubleBuffering()
