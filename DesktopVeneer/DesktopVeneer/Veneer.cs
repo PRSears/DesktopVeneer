@@ -268,10 +268,13 @@ namespace DesktopVeneer
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
-            int wl = GetWIndowLong(this.Handle, GWL.ExStyle);
-            wl = wl | 0x80000 | 0x20;
 
-            SetWindowLong(this.Handle, GWL.ExStyle, wl);
+            SetWindowLong
+                (
+                    this.Handle, 
+                    GWL.ExStyle,
+                    GetWindowLong(this.Handle, GWL.ExStyle) | (int)WS_EX.Layered | (int)WS_EX.Transparent
+                );
         }
 
         [DllImport("user32", CharSet = CharSet.Auto, SetLastError = true, ExactSpelling = true)]
@@ -303,7 +306,7 @@ namespace DesktopVeneer
         }
 
         [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
-        public static extern int GetWIndowLong(IntPtr hWnd, GWL nIndex);
+        public static extern int GetWindowLong(IntPtr hWnd, GWL nIndex);
 
         [DllImport("user32.dll", EntryPoint = "SetWindowLong")]
         public static extern int SetWindowLong(IntPtr hWnd, GWL nIndex, int dwNewLong);
